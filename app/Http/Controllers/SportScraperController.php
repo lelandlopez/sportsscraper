@@ -38,7 +38,8 @@ class SportScraperController extends Controller
     	$client = new Client();
     	$crawler = $client->request('GET', 'http://espn.go.com/nba/format/player/design09/dropdown?teamId=undefined&posId=undefined&lang=en');	
     	$crawler->filter('ul.main-items > li > a')->each(function ($teamrows) use ($crawler){
-    		print $teamrows->text();
+    		$team_name = $teamrows->text();
+    		print $team_name;
     		print "<br>";
 	    	$crawler->filter('ul.split-level-content-list[id="'. $teamrows->attr("id") .'list"] > li')->each(function ($player) {
 	    		print $player->text() . ":" . $player->filter('a')->link()->getUri();
