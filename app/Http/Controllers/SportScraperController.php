@@ -7,6 +7,8 @@ use Goutte\Client;
 
 use App\Http\Requests;
 
+use App\Player;
+
 class SportScraperController extends Controller
 {
     public function asdf () {
@@ -42,9 +44,20 @@ class SportScraperController extends Controller
     		print $team_name;
     		print "<br>";
 	    	$crawler->filter('ul.split-level-content-list[id="'. $teamrows->attr("id") .'list"] > li')->each(function ($player) {
-	    		print $player->text() . ":" . $player->filter('a')->link()->getUri();
+	    		$player_name = $player->text();
+	    		$player_url = $player->filter('a')->link()->getUri();
+	    		print $player_name . ":" . $player_url;
 	    		print "<br>";
-	    		
+	    		$player = new Player;
+	    		$player->name = $player_name;
+	    		$player->url = $player_url;	
+	    		$player_id_last_slash = strrpos($player_url, '/');
+	    		$player_id_second_last_slash_string = substr($player_url, 0, $player_id_last_slash);
+	    		$player_id_second_last_slash = strrpos($player_id_second_last_slash_string, '/');
+	    		$player_id = substr($player_url, $player_id_second_last_slash + 1, $player_id_last_slash - $player_id_second_last_slash - 1);
+	    		print $player_id;
+	    		print "<br>";
+	    		//$player->save();
 	    	});
 	    	print "<br>";
 
