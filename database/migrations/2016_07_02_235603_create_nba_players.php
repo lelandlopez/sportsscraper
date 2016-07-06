@@ -17,6 +17,15 @@ class CreateNbaPlayers extends Migration
             $table->string('name');
             $table->string('url');
             $table->timestamps();
+            $table->string('player_position');
+            $table->string('college');
+            $table->string('weight');
+            $table->string('birth_date');
+            $table->integer('height_feet');
+            $table->integer('height_inches');
+            $table->integer('experience');
+            $table->integer('draft_year');
+            $table->boolean('drafted');
         });
     }
 

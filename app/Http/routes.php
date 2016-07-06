@@ -16,5 +16,9 @@ Route::get('/', function () {
 });
 
 
-Route::get('/scrape', 'SportScraperController@asdf');
+Route::get('/scrape_game_info', 'SportScraperController@scrape_player_game_info');
+Route::get('/scrape_nba_teams', 'SportScraperController@scrape_nba_teams');
 Route::get('/playerUrls', 'SportScraperController@scrapePlayerUrls');
+Route::get('/player_info', 'SportScraperController@scrapePlayerInfo');
+Route::get('/update_players_info', 'SportScraperController@update_players_info');
+Route::get('/clean_players_info', 'SportScraperController@clean_up_player_info');

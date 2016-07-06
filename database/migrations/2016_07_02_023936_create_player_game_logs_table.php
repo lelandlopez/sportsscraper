@@ -14,8 +14,8 @@ class CreatePlayerGameLogsTable extends Migration
     {
         Schema::create('player_game_logs', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('opposing_team_id')->unsigned();
-            $table->foreign('opposing_team_id')->references('id')->on('nba_teams');
+            //$table->integer('opposing_team_id')->unsigned();
+            //$table->foreign('opposing_team_id')->references('id')->on('nba_teams');
             $table->boolean('home');
             $table->string('date');
             $table->boolean('win');
@@ -25,9 +25,9 @@ class CreatePlayerGameLogsTable extends Migration
             $table->integer('fgm');
             $table->integer('fga');
             $table->float('fgp');
-            $table->integer('3pm');
-            $table->integer('3pa');
-            $table->float('3pp');
+            $table->integer('tpm');
+            $table->integer('tpa');
+            $table->float('tpp');
             $table->integer('ftm');
             $table->integer('fta');
             $table->float('ftp');
