@@ -14,6 +14,13 @@ use App\NBA_Team;
 class SportScraperController extends Controller
 {
 
+	public function init() {
+		SportScraperController::scrapePlayerUrls();
+		SportScraperController::scrape_nba_teams();
+		SportScraperController::update_players_info();
+
+	}
+
 	public function scrape_players_game_info() {
     	$players = Player::all();
     	foreach($players as $player) {
@@ -30,6 +37,37 @@ class SportScraperController extends Controller
     		$team_name = $teamrows->text();
     		$nba_team = new NBA_Team();
     		$nba_team->name = $team_name;
+    		$nba_team->nickname = strtoupper(substr($team_name, 0, 3));
+    		if($team_name == "New York") {
+    			$nba_team->nickname = "NY";
+    		}
+    		if($team_name == "Brooklyn") {
+    			$nba_team->nickname = "BKN";
+    		}
+    		if($team_name == "LA Clippers") {
+    			$nba_team->nickname = "LAC";
+    		}
+    		if($team_name == "LA Lakers") {
+    			$nba_team->nickname = "LAL";
+    		}
+    		if($team_name == "San Antonio") {
+    			$nba_team->nickname = "SA";
+    		}
+    		if($team_name == "Oklahoma City") {
+    			$nba_team->nickname = "OKC";
+    		}
+    		if($team_name == "Phoenix") {
+    			$nba_team->nickname = "PHX";
+    		}
+    		if($team_name == "Washington") {
+    			$nba_team->nickname = "WSH";
+    		}
+    		if($team_name == "Utah") {
+    			$nba_team->nickname = "Utah";
+    		}
+    		if($team_name == "New Orleans") {
+    			$nba_team->nickname = "NO";
+    		}
     		$nba_team->save();
     	});
 	}
@@ -60,6 +98,9 @@ class SportScraperController extends Controller
 	    			if($statcolumn->filter('li.team-name')->count() != 0 && $statcolumn->filter('li.team-name > a')->count() != 0) {
 		    			print '<a href="'. $statcolumn->filter('li.team-name > a')->link()->getUri() . '">' . $statcolumn->filter('li.team-name')->first()->text() . '</a>';
 		    			$team_name = $statcolumn->filter('li.team-name')->first()->text();
+		    			$team = NBA_Team::where("nickname", $team_name)->get()->first();
+		    			$game_log->opposing_team_id = $team->id;
+		    			print "<br>";
 		    			//TODO add opposing team
 		    		}
 	    			print "<br>";
@@ -187,6 +228,9 @@ class SportScraperController extends Controller
 		    		print "<br>";
 	    		}
 			});
+			if($game_log->opposing_team_id == "") {
+				$game_log->opposing_team_id = 31;
+			}
 			$game_log->save();
 			print "<br>";
 		});

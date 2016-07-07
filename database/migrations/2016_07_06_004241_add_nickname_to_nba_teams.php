@@ -1,9 +1,9 @@
-php <?php
+<?php
 
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class DeleteTables extends Migration
+class AddNicknameToNbaTeams extends Migration
 {
     /**
      * Run the migrations.
@@ -12,7 +12,9 @@ class DeleteTables extends Migration
      */
     public function up()
     {
-        //
+        Schema::table('nba_teams', function ($table) {
+            $table->string('nickname');
+        });
     }
 
     /**
@@ -22,8 +24,6 @@ class DeleteTables extends Migration
      */
     public function down()
     {
-        Schema::drop('player_game_logs');
-        Schema::drop('players');
-        Schema::drop('nba_teams');
+        //
     }
 }

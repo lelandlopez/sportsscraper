@@ -22,3 +22,4 @@ Route::get('/playerUrls', 'SportScraperController@scrapePlayerUrls');
 Route::get('/player_info', 'SportScraperController@scrapePlayerInfo');
 Route::get('/update_players_info', 'SportScraperController@update_players_info');
 Route::get('/clean_players_info', 'SportScraperController@clean_up_player_info');
+Route::get('/init', 'SportScraperController@init');
