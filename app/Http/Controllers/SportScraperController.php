@@ -10,9 +10,16 @@ use App\Http\Requests;
 use App\Player;
 use App\Player_Game_Log;
 use App\NBA_Team;
+use App\Game;
 
 class SportScraperController extends Controller
 {
+	public function test() {
+    	$client = new Client();
+    	$crawler = $client->request('GET', 'http://espn.go.com/nba/format/player/design09/dropdown?teamId=undefined&posId=undefined&lang=en');	
+		$content = $client->getResponse()->getHeader('Content-Type');                
+		print $content;
+	}	
 
 	public function init() {
 		SportScraperController::scrapePlayerUrls();
@@ -21,10 +28,13 @@ class SportScraperController extends Controller
 
 	}
 
-	public function scrape_players_game_info() {
+	public function scrape_all_players_game_info() {
     	$players = Player::all();
+    	$i = 0;
     	foreach($players as $player) {
     		SportScraperController::scrape_player_game_info($player->url, $player->id);
+    		$i ++;
+    		print $i;
     		sleep(0.5);
     	}
 
@@ -33,12 +43,16 @@ class SportScraperController extends Controller
 	public function scrape_nba_teams() {
     	$client = new Client();
     	$crawler = $client->request('GET', 'http://espn.go.com/nba/format/player/design09/dropdown?teamId=undefined&posId=undefined&lang=en');	
+    		sleep(mt_rand(1,3));
     	$crawler->filter('ul.main-items > li > a')->each(function ($teamrows) use ($crawler){
     		$team_name = $teamrows->text();
     		$nba_team = new NBA_Team();
     		$nba_team->name = $team_name;
     		$nba_team->nickname = strtoupper(substr($team_name, 0, 3));
     		if($team_name == "New York") {
+    			$nba_team->nickname = "NY";
+    		}
+    		if($team_name == "Golden State") {
     			$nba_team->nickname = "NY";
     		}
     		if($team_name == "Brooklyn") {
@@ -72,22 +86,28 @@ class SportScraperController extends Controller
     	});
 	}
 
-    public function scrape_player_game_info ($url = "http://espn.go.com/nba/player/gamelog/_/id/3975/stephen-curry", $player_id = 3975) {
+	//  scrape_game_info
+    public function scrape_player_game_info ($url = "http://espn.go.com/nba/player/gamelog/_/id/3975/stephen-curry", $player_id = 3975, $debug = false) {
     	$client = new Client();
     	$crawler = $client->request('GET', $url);	
-    	$crawler->filter('[class*="oddrow"][class*="team"], [class*="evenrow"][class*="team"]')->each(function ($gamerows) use ($player_id) {
+		sleep(5);
+    	$crawler->filter('[class*="oddrow"][class*="team"], [class*="evenrow"][class*="team"]')->each(function ($gamerows) use ($player_id, $debug) {
 	    	$game_log = new Player_Game_Log();
 	    	$game_log->player_id = $player_id;
-	    	$gamerows->filter('td')->each(function ($statcolumn, $i) use ($game_log) {
+	    	$gamerows->filter('td')->each(function ($statcolumn, $i) use ($game_log, $debug) {
 	    		if($i == 0) {
 	    			$date = $statcolumn->text();
 	    			$game_log->date = $date;
-	    			print $date;
-	    			print "<br>";
+	    			if($debug) {
+		    			print $date;
+		    			print "<br>";
+		    		}
 	    		} else if($i == 1) {
 	    			if($statcolumn->filter('li.game-location')->count() != 0) {
-		    			print $statcolumn->filter('li.game-location')->first()->text();
-		    			print "<br>";
+		    			if($debug) {
+			    			print $statcolumn->filter('li.game-location')->first()->text();
+			    			print "<br>";
+			    		}
 		    			$game_location = $statcolumn->filter('li.game-location')->first()->text();
 		    			if($game_location == "vs") {
 		    				$game_log->home = true;
@@ -96,11 +116,18 @@ class SportScraperController extends Controller
 		    			}
 	    			}
 	    			if($statcolumn->filter('li.team-name')->count() != 0 && $statcolumn->filter('li.team-name > a')->count() != 0) {
-		    			print '<a href="'. $statcolumn->filter('li.team-name > a')->link()->getUri() . '">' . $statcolumn->filter('li.team-name')->first()->text() . '</a>';
+
+		    			if($debug) {
+			    			print '<a href="'. $statcolumn->filter('li.team-name > a')->link()->getUri() . '">' . $statcolumn->filter('li.team-name')->first()->text() . '</a>';
+			    		}
 		    			$team_name = $statcolumn->filter('li.team-name')->first()->text();
 		    			$team = NBA_Team::where("nickname", $team_name)->get()->first();
 		    			$game_log->opposing_team_id = $team->id;
-		    			print "<br>";
+		    			if($debug) {
+			    			print "<br>";
+			    			print $statcolumn->filter('li.team-name > a')->link()->getUri();
+			    			print "<br>";
+			    		}
 		    			//TODO add opposing team
 		    		}
 	    			print "<br>";
@@ -110,6 +137,21 @@ class SportScraperController extends Controller
 	    			$pointsfori = strpos($statcolumn->text(), "-");
 	    			$pointsfor = substr($statcolumn->text(), $wini + 1, $pointsfori - $wini - 1);
 	    			$pointsagainst = substr($statcolumn->text(), $pointsfori + 1, strlen($statcolumn->text()) - $pointsfori + 1);
+	    			$game_url = $statcolumn->filter('a')->link()->getUri();
+	    			$game_idi = strpos($game_url, '=');
+	    			$game_id = substr($game_url, $game_idi + 1, strlen($game_url) - $game_idi);
+	    			$game_log->game_id = $game_id;
+	    			if($debug) {
+		    			print $game_id;
+		    			print "<br>";
+		    		}
+	    			if(!Game::find($game_id)) {
+	    				$game = new Game();
+	    				$game->id = $game_id;
+	    				$game->game_type = 1;
+	    				$game->game_url = $game_url;
+	    				$game->save();
+	    			}
 	    			if($win == "W") {
 	    				$game_log->win = true;
 	    			} else if($win == "L") {
@@ -117,17 +159,21 @@ class SportScraperController extends Controller
 	    			}
     				$game_log->score_for = $pointsfor;
     				$game_log->score_opposing = $pointsagainst;
-	    			print $win;
-	    			print "<br>";
-	    			print $pointsfor;
-	    			print "<br>";
-	    			print $pointsagainst;
-	    			print "<br>";
+	    			if($debug) {
+		    			print $win;
+		    			print "<br>";
+		    			print $pointsfor;
+		    			print "<br>";
+		    			print $pointsagainst;
+		    			print "<br>";
+		    		}
 	    		} else if($i == 3) {
 	    			$min = $statcolumn->text();		
     				$game_log->min = $min;
-	    			print $min;
-	    			print "<br>";
+	    			if($debug) {
+		    			print $min;
+		    			print "<br>";
+		    		}
 	    		} 
 	    		else if($i == 4) {
 	    			$fgmi = strpos($statcolumn->text(), "-");
@@ -135,16 +181,20 @@ class SportScraperController extends Controller
 	    			$fga = substr($statcolumn->text(), $fgmi + 1, strlen($statcolumn->text()) - $fgmi);
     				$game_log->fgm = $fgm;
     				$game_log->fga = $fga;
-	    			print $fgm;
-	    			print "<br>";
-	    			print $fga;
-	    			print "<br>";
+	    			if($debug) {
+		    			print $fgm;
+		    			print "<br>";
+		    			print $fga;
+		    			print "<br>";
+		    		}
 
 	    		} else if($i == 5) {
 	    			$fgp = $statcolumn->text();		
     				$game_log->fgp = $fgp;
-	    			print $fgp;
-	    			print "<br>";
+	    			if($debug) {
+		    			print $fgp;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 6) {
 	    			$tpmi = strpos($statcolumn->text(), "-");
@@ -152,17 +202,20 @@ class SportScraperController extends Controller
 	    			$tpa = substr($statcolumn->text(), $tpmi + 1, strlen($statcolumn->text()) - $tpmi);
     				$game_log->tpm = $tpm;
     				$game_log->tpa = $tpa;
-	    			print $tpm;
-	    			print "<br>";
-	    			print $tpa;
-	    			print "<br>";
-
+	    			if($debug) {
+		    			print $tpm;
+		    			print "<br>";
+		    			print $tpa;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 7) {
 	    			$tpp = $statcolumn->text();		
     				$game_log->tpp = $tpp;
-	    			print $tpp;
-	    			print "<br>";
+    				if($debug) {
+		    			print $tpp;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 8) {
 	    			$ftmi = strpos($statcolumn->text(), "-");
@@ -170,69 +223,94 @@ class SportScraperController extends Controller
 	    			$fta = substr($statcolumn->text(), $ftmi + 1, strlen($statcolumn->text()) - $ftmi);
     				$game_log->ftm = $ftm;
     				$game_log->fta = $fta;
-	    			print $ftm;
-	    			print "<br>";
-	    			print $fta;
-	    			print "<br>";
+    				if($debug) {
+		    			print $ftm;
+		    			print "<br>";
+		    			print $fta;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 9) {
 	    			$ftp = $statcolumn->text();		
     				$game_log->ftp = $ftp;
-	    			print $ftp;
-	    			print "<br>";
+    				if($debug) {
+		    			print $ftp;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 10) {
 	    			$reb = $statcolumn->text();		
     				$game_log->reb = $reb;
-	    			print $reb;
-	    			print "<br>";
+    				if($debug) {
+		    			print $reb;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 11) {
 	    			$ast = $statcolumn->text();		
     				$game_log->ast = $ast;
-	    			print $ast;
-	    			print "<br>";
+    				if($debug) {
+		    			print $ast;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 12) {
 	    			$blk = $statcolumn->text();		
     				$game_log->blk = $blk;
-	    			print $blk;
-	    			print "<br>";
+    				if($debug) {
+		    			print $blk;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 13) {
 	    			$stl = $statcolumn->text();		
     				$game_log->stl = $stl;
-	    			print $stl;
-	    			print "<br>";
+    				if($debug) {
+		    			print $stl;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 14) {
 	    			$pf = $statcolumn->text();		
     				$game_log->pf = $pf;
-	    			print $pf;
-	    			print "<br>";
+    				if($debug) {
+		    			print $pf;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 15) {
 	    			$to = $statcolumn->text();		
     				$game_log->to = $to;
-	    			print $to;
-	    			print "<br>";
+    				if($debug) {
+		    			print $to;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else if($i == 16) {
 	    			$pts = $statcolumn->text();		
     				$game_log->pts = $pts;
-	    			print $pts;
-	    			print "<br>";
+    				if($debug) {
+		    			print $pts;
+		    			print "<br>";
+		    		}
 	    		}
 	    		else {
-		    		print $i . " : " . $statcolumn->text();
-		    		print "<br>";
+    				if($debug) {
+			    		print $i . " : " . $statcolumn->text();
+			    		print "<br>";
+			    	}
 	    		}
 			});
 			if($game_log->opposing_team_id == "") {
 				$game_log->opposing_team_id = 31;
 			}
-			$game_log->save();
-			print "<br>";
+			if(Player_Game_Log::where('player_id', $game_log->player_id)->where('game_id', $game_log->game_id)->count() == 0) {
+				$game_log->save();
+			}
+
+			if($debug) {
+				print "<br>";
+			}
 		});
     }
 
