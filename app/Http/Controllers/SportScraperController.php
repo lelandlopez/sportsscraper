@@ -14,11 +14,143 @@ use App\Game;
 
 class SportScraperController extends Controller
 {
-	public function test() {
+	public function transfer_info() {
+		$games = Game::all();
+		foreach($games as $game) {
+			$game_log = Player_Game_Log::where('game_id', '=', $game->id)->first();
+			if($game_log->home) {
+				$game->home_win = true;
+				$game->points_home = $game_log->score_for;
+				$game->points_away = $game_log->score_opposing;
+				$game->save();
+			} else {
+				$game->home_win = false;
+				$game->points_home = $game_log->score_opposing;
+				$game->points_away = $game_log->score_for;
+				$game->save();
+
+			}
+		}
+
+	}
+
+	public function delete_space_in_player_position() {
+		$players = Player::all();
+		foreach($players as $player) {
+			$player->player_position = trim($player->player_position);
+			$player->save();
+		}
+
+	}
+
+	public function fill_in_player_url() {
+		$players = Player::where('url', '=', '')->get();
+		foreach($players as $player) {
+			print $player->id;
+			$player->url = "http://espn.go.com/nba/player/gamelog/_/id/" . $player->id . "/richard-jefferson";
+			$player->save();
+		}
+		$players = Player::where('name', '=', '')->get();
+		foreach($players as $player) {
+			SportScraperController::scrapePlayerInfo($player->url);
+		}
+	}
+
+	public function asdf() {
+		ini_set('max_execution_time', 600);
+		$games = Game::all();
+		foreach($games as $game) {
+			print $game->game_url;
+			print "asdf";
+			print "<br>";
+			SportScraperController::scrape_nba_teams_from_game($game->game_url);
+
+		}
+	}
+
+	public function scrape_nba_teams_from_game($url = "http://espn.go.com/nba/boxscore?id=400829115") {
+		$idi = strpos($url, '=');
+		$id = substr($url, $idi + 1, strlen($url) - $idi + 1);
     	$client = new Client();
-    	$crawler = $client->request('GET', 'http://espn.go.com/nba/format/player/design09/dropdown?teamId=undefined&posId=undefined&lang=en');	
-		$content = $client->getResponse()->getHeader('Content-Type');                
-		print $content;
+    	$crawler = $client->request('GET', $url);	
+		sleep(mt_rand(1,2));
+		print $url;
+		$game = Game::find($id);
+    	$crawler->filter('div.away > div.content > div.team-container > div.team-info > a > span.abbrev')->each(function ($away_team) use ($game) {
+    		$at = $away_team->text();
+    		$nba_team = NBA_Team::where('nickname', '=', $at)->first();
+    		print $nba_team->id;
+    		$game->away_team_id = $nba_team->id;
+    		print "<br>";
+    	});
+    	$crawler->filter('div.home > div.content > div.team-container > div.team-info > a > span.abbrev')->each(function ($home_team) use ($game) {
+    		$at = $home_team->text();
+    		$nba_team = NBA_Team::where('nickname', '=', $at)->first();
+    		print $nba_team->id;
+    		$game->home_team_id = $nba_team->id;
+    		print "<br>";
+    	});
+    	$crawler->filter('tbody')->each(function ($tbody, $i) {
+	    	$tbody->filter('tr:not([highlight]) > td.name > a')->each(function ($player) use ($i) {
+	    		print $player->text() . $i;
+	    		print "<br>";
+	    		$player_url = $player->link()->getUri();
+	    		print $player_url;
+	    		print "<br>";
+	    		$lplayer_urli = strrpos($player_url, '/');
+	    		$player_id = substr($player_url, $lplayer_urli + 1, strlen($player_url) - $lplayer_urli + 1);
+	    		print $player_id;
+	    		print "<br>";
+	    		if(!Player::find($player_id)) {
+		    		$player = new Player();
+		    		$player->id = $player_id;
+		    		$player->save();
+		    	}
+	    	});
+    	});
+		$game->updated = true;
+		$game->save();
+	}
+
+
+	public function refactor_date_for_player_game_logs() {
+		$player_game_logs = Player_Game_Log::all();
+		foreach($player_game_logs as $player_game_log) {
+			$dayi = strpos($player_game_log->date, ' ');
+			$date = substr($player_game_log->date, $dayi + 1, strlen($player_game_log->date) - $dayi + 1);
+			$player_game_log->date = $date;
+			$player_game_log->save();
+		}
+
+	}
+
+	public function update_player_urls() {
+		$players = Player::all();
+		foreach($players as $player) {
+			$player_url = $player->url;	
+			$playeri = strpos($player_url, '_');
+			$player_url = substr_replace($player_url, "gamelog/", $playeri, 0);
+			print $player_url;
+			print "<br>";
+			$player->url = $player_url;
+			$player->save();
+		}
+
+	}
+	public function players_updated() {
+		$players = Player::all();
+		foreach($players as $player) {
+			$player->updated = true;
+			$player->save();
+		}
+	}
+
+	public function test() {
+		$games = Game::all();
+		foreach($games as $game) {
+			$game->year = 2015;
+			$game->save();
+		}
 	}	
 
 	public function init() {
@@ -28,22 +160,19 @@ class SportScraperController extends Controller
 
 	}
 
-	public function scrape_all_players_game_info() {
-    	$players = Player::all();
-    	$i = 0;
+	public function scrape_all_players_game_info($start = 0) {
+		ini_set('max_execution_time', 600);
+		$players = Player::Where('id', '>', $start)->get();
     	foreach($players as $player) {
     		SportScraperController::scrape_player_game_info($player->url, $player->id);
-    		$i ++;
-    		print $i;
-    		sleep(0.5);
+    		print "asdf";
     	}
-
 	}
 
 	public function scrape_nba_teams() {
     	$client = new Client();
     	$crawler = $client->request('GET', 'http://espn.go.com/nba/format/player/design09/dropdown?teamId=undefined&posId=undefined&lang=en');	
-    		sleep(mt_rand(1,3));
+    		sleep(mt_rand(1,2));
     	$crawler->filter('ul.main-items > li > a')->each(function ($teamrows) use ($crawler){
     		$team_name = $teamrows->text();
     		$nba_team = new NBA_Team();
@@ -88,9 +217,11 @@ class SportScraperController extends Controller
 
 	//  scrape_game_info
     public function scrape_player_game_info ($url = "http://espn.go.com/nba/player/gamelog/_/id/3975/stephen-curry", $player_id = 3975, $debug = false) {
+    	print $url;
+    	print "<br>";
     	$client = new Client();
     	$crawler = $client->request('GET', $url);	
-		sleep(5);
+		sleep(mt_rand(1,2));
     	$crawler->filter('[class*="oddrow"][class*="team"], [class*="evenrow"][class*="team"]')->each(function ($gamerows) use ($player_id, $debug) {
 	    	$game_log = new Player_Game_Log();
 	    	$game_log->player_id = $player_id;
@@ -357,6 +488,11 @@ class SportScraperController extends Controller
 		}
     	$client = new Client();
     	$crawler = $client->request('GET', $url);	
+    	$crawler->filter('div.mod-content > h1')->each(function ($name_string) use ($player) { 
+    		$player->name = $name_string->text();
+    		print $player->name;
+    		print "<br>";
+    	});
     	$crawler->filter('ul.general-info > li')->each(function ($height_string, $i) use ($player){
     		if($i == 0) {
     			$si = strpos($height_string->text(), ' ');
